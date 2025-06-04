@@ -6,7 +6,7 @@ android {
     ndkVersion "29.0.13113456"
     namespace = "com.github.camvision"
     defaultConfig {
-        minSdkVersion 24
+        minSdkVersion 29
         targetSdkVersion 33
 
         ndk {
@@ -27,7 +27,7 @@ android {
                             "-DANDROID_TOOLCHAIN=clang",
                             "-DANDROID_STL=c++_static",
                             "-DANDROID_ARM_MODE=arm",
-                            "-DANDROID_NATIVE_API_LEVEL=24",
+                            "-DANDROID_NATIVE_API_LEVEL=29",
                             "-DANDROID_CPP_FEATURES=exceptions",
                             "-DCMAKE_BUILD_TYPE=Debug"
 
@@ -43,7 +43,7 @@ android {
                             "-DANDROID_TOOLCHAIN=clang",
                             "-DANDROID_STL=c++_static",
                             "-DANDROID_ARM_MODE=arm",
-                            "-DANDROID_NATIVE_API_LEVEL=24",
+                            "-DANDROID_NATIVE_API_LEVEL=29",
                             "-DANDROID_CPP_FEATURES=exceptions",
                             "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
 

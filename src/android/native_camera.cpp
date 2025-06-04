@@ -1,4 +1,5 @@
 #include <android/native_camera.h>
+#include <camera/NdkCaptureRequest.h>
 
 #include <string>
 
@@ -191,6 +192,11 @@ NativeCamera::NativeCamera() {
                                                            nullptr);
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot set request");
+    }
+    uint8_t focus_mode = ACAMERA_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+    cam_status = ACaptureRequest_setEntry_u8(capture_request_, ACAMERA_CONTROL_AF_MODE, 1, &focus_mode);
+    if(cam_status != ACAMERA_OK) {
+        throw std::runtime_error("cannot set autofocus");
     }
 }
 cv::Mat NativeCamera::getImage() const {
