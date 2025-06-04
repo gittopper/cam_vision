@@ -215,12 +215,15 @@ cv::Mat NativeCamera::getImage() const {
     AImage_getHeight(image, &src_height);
     int32_t src_width{0};
     AImage_getWidth(image, &src_width);
+    int32_t image_pixelstrides[2];
+    AImage_getPlanePixelStride(image, 1, &image_pixelstrides[0]);
+    AImage_getPlanePixelStride(image, 2, &image_pixelstrides[1]);
     int32_t y_stride{0};
     AImage_getPlaneRowStride(image, 0, &y_stride);
     int32_t uv_stride1{0};
     AImage_getPlaneRowStride(image, 1, &uv_stride1);
     int32_t uv_stride2{0};
-    AImage_getPlaneRowStride(image, 1, &uv_stride2);
+    AImage_getPlaneRowStride(image, 2, &uv_stride2);
 
     uint8_t *y_pixel{nullptr}, *uv_pixel1{nullptr}, *uv_pixel2{nullptr};
     int32_t y_len{0}, uv_len1{0}, uv_len2{0};
@@ -231,16 +234,27 @@ cv::Mat NativeCamera::getImage() const {
     cv::Size half_size(src_width / 2, src_height / 2);
 
     cv::Mat y(actual_size, CV_8UC1, y_pixel, y_stride);
-    cv::Mat uv1(half_size, CV_8UC2, uv_pixel1, uv_stride1);
-    cv::Mat uv2(half_size, CV_8UC2, uv_pixel2, uv_stride2);
-    cv::Mat rgba_img_;
-    long addr_diff = uv2.data - uv1.data;
-    if (addr_diff > 0) {
-        cvtColorTwoPlane(y, uv1, rgba_img_, cv::COLOR_YUV2RGBA_NV12);
+    long addr_diff = uv_pixel2 - uv_pixel1;
+    cv::Mat uv, uv1, uv2;
+    if(src_width > uv_stride1) {
+         uv1 = cv::Mat(half_size, CV_8UC1, uv_pixel1);
+         uv2 = cv::Mat(half_size, CV_8UC1, uv_pixel2);
+         cv::merge(std::vector<cv::Mat>{uv1, uv2}, uv);
     } else {
-        cvtColorTwoPlane(y, uv2, rgba_img_, cv::COLOR_YUV2RGBA_NV21);
+         uv1 = cv::Mat(half_size, CV_8UC2, uv_pixel1, uv_stride1);
+         uv2 = cv::Mat(half_size, CV_8UC2, uv_pixel2, uv_stride2);
+         uv = addr_diff > 0 ? uv1 : uv2;
+    }
+    cv::Mat rgba_img_;
+    if (addr_diff > 0) {
+        cvtColorTwoPlane(y, uv, rgba_img_, cv::COLOR_YUV2RGBA_NV12);
+    } else {
+        cvtColorTwoPlane(y, uv, rgba_img_, cv::COLOR_YUV2RGBA_NV21);
     }
     AImage_delete(image);
+
+    rgba_img_ = back_camera_.portrait ? rgba_img_ : rgba_img_.t();
+    cv::flip(rgba_img_, rgba_img_, 1);
     return rgba_img_;
 }
 
