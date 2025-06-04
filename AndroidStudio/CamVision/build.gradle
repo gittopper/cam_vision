@@ -1,0 +1,73 @@
+apply plugin: 'com.android.application'
+
+def target = "cam_vision"
+android {
+    compileSdkVersion 29
+    ndkVersion "29.0.13113456"
+    namespace = "com.github.camvision"
+    defaultConfig {
+        minSdkVersion 24
+        targetSdkVersion 33
+
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+            version 29
+        }
+    }
+    compileOptions {
+        // Flag to enable support for the new language APIs
+        coreLibraryDesugaringEnabled false
+    }
+
+    buildTypes {
+        debug {
+            externalNativeBuild {
+                cmake {
+                    arguments "-DANDROID_REGIME=ON",
+                            "-DANDROID_TOOLCHAIN=clang",
+                            "-DANDROID_STL=c++_static",
+                            "-DANDROID_ARM_MODE=arm",
+                            "-DANDROID_NATIVE_API_LEVEL=24",
+                            "-DANDROID_CPP_FEATURES=exceptions",
+                            "-DCMAKE_BUILD_TYPE=Debug"
+
+                    targets "${target}".toString()
+                }
+            }
+            jniDebuggable true
+        }
+        release {
+            externalNativeBuild {
+                cmake {
+                    arguments "-DANDROID_REGIME=ON",
+                            "-DANDROID_TOOLCHAIN=clang",
+                            "-DANDROID_STL=c++_static",
+                            "-DANDROID_ARM_MODE=arm",
+                            "-DANDROID_NATIVE_API_LEVEL=24",
+                            "-DANDROID_CPP_FEATURES=exceptions",
+                            "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+
+                    targets "${target}".toString()
+                }
+            }
+            signingConfig signingConfigs.debug
+            jniDebuggable true
+        }
+    }
+    sourceSets {
+        main {
+            manifest.srcFile './AndroidManifest.xml'
+            resources.srcDirs = ['./src']
+            res.srcDirs = ['./res']
+            assets.srcDirs = ['../../src/assets']
+            java.srcDirs = ['./src']
+        }
+
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "./../../CMakeLists.txt"
+        }
+    }
+}
