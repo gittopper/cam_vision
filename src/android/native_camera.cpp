@@ -198,6 +198,17 @@ NativeCamera::NativeCamera() {
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot set autofocus");
     }
+    uint8_t edge_mode = ACAMERA_EDGE_MODE_HIGH_QUALITY;
+    cam_status = ACaptureRequest_setEntry_u8(capture_request_, ACAMERA_EDGE_MODE, 1, &edge_mode);
+    if(cam_status != ACAMERA_OK) {
+        throw std::runtime_error("cannot set edge mode");
+    }
+    uint8_t pixel_resolution = ACAMERA_SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION;
+    cam_status = ACaptureRequest_setEntry_u8(capture_request_, ACAMERA_SENSOR_PIXEL_MODE, 1, &pixel_resolution);
+    if(cam_status != ACAMERA_OK) {
+        throw std::runtime_error("cannot set pixel mode");
+    }
+
 }
 cv::Mat NativeCamera::getImage() const {
     AImage *image = nullptr;
