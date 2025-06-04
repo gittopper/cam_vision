@@ -231,8 +231,8 @@ cv::Mat NativeCamera::getImage() const {
     cv::Size half_size(src_width / 2, src_height / 2);
 
     cv::Mat y(actual_size, CV_8UC1, y_pixel, y_stride);
-    cv::Mat uv1(half_size, CV_8UC2, uv_pixel1, 2 * uv_stride1);
-    cv::Mat uv2(half_size, CV_8UC2, uv_pixel2, 2 * uv_stride2);
+    cv::Mat uv1(half_size, CV_8UC2, uv_pixel1, uv_stride1);
+    cv::Mat uv2(half_size, CV_8UC2, uv_pixel2, uv_stride2);
     cv::Mat rgba_img_;
     long addr_diff = uv2.data - uv1.data;
     if (addr_diff > 0) {
