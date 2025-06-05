@@ -1,11 +1,11 @@
 #include <android/native_camera.h>
 #include <camera/NdkCaptureRequest.h>
-
+#include <android/sensor.h>
 #include <string>
 
 namespace {
     NativeCamera::CameraInfo getCamInfo(const std::string& id, ACameraMetadata* metadata_obj) {
-        NativeCamera::CameraInfo cam_info;
+        NativeCamera::CameraInfo cam_info{};
         ACameraMetadata_const_entry entry = { 0 };
         camera_status_t status = ACameraMetadata_getConstEntry(metadata_obj,
                                       ACAMERA_SENSOR_INFO_EXPOSURE_TIME_RANGE, &entry);
@@ -27,6 +27,8 @@ namespace {
         if (status != ACAMERA_OK) {
             throw std::runtime_error("no camera streaming property");
         }
+        using Res = std::pair<int, int>;
+        std::vector<Res> resolutions;
         for (int i = 0; i < entry.count; i += 4)
         {
             // We are only interested in output streams, so skip input stream
@@ -37,10 +39,18 @@ namespace {
             int32_t format = entry.data.i32[i + 0];
             if (format == AIMAGE_FORMAT_JPEG)
             {
-                cam_info.width = entry.data.i32[i + 1];
-                cam_info.height = entry.data.i32[i + 2];
+                resolutions.push_back(std::pair<int, int>{entry.data.i32[i + 1], entry.data.i32[i + 2]});
+            }
+            if (format == AIMAGE_FORMAT_YUV_420_888) {
+                resolutions.push_back(std::pair<int, int>{entry.data.i32[i + 1], entry.data.i32[i + 2]});
             }
         }
+        std::sort(resolutions.begin(), resolutions.end(), [](const Res&a, const Res& b){
+            return a.first < b.first;
+        });
+        auto mid_res = resolutions.size() / 2;
+        cam_info.width = resolutions[mid_res].first;
+        cam_info.height = resolutions[mid_res].second;
         status =ACameraMetadata_getConstEntry(metadata_obj,
                                       ACAMERA_SENSOR_ORIENTATION,
                                       &entry);
@@ -81,6 +91,50 @@ namespace {
             .onActive = onActive
 
     };
+    int looperCallbackFunc(int fd, int events, void* data) {
+
+    }
+}
+
+int NativeCamera::rotation() const {
+    ASensorManager* sensorManager = ASensorManager_getInstance();
+    const ASensor* accelerometer = ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ACCELEROMETER);
+    ALooper* looper = ALooper_prepare(0);
+    auto queue = ASensorManager_createEventQueue(sensorManager, looper, 1, looperCallbackFunc, nullptr);
+    ASensorEventQueue_enableSensor(queue, accelerometer);
+    ASensorEventQueue_setEventRate(queue, accelerometer, 20000);
+    ASensorEvent event;
+    auto result = ASensorEventQueue_getEvents(queue, &event, 1);
+    while(0 >= result) {
+        result = ASensorEventQueue_getEvents(queue, &event, 1);
+    }
+    int rot{};
+    if(event.type == ASENSOR_TYPE_ACCELEROMETER) {
+        auto& accel = event.acceleration;
+        auto ax = event.acceleration.x;
+        auto ay = event.acceleration.y;
+        auto az = event.acceleration.z;
+        if(std::abs(ax) > std::abs(ay)) {
+            rot = ax > 0 ? 90 : 270;
+        } else {
+            rot = ay > 0 ? 0 : 180;
+        }
+    }
+    ASensorEventQueue_disableSensor(queue, accelerometer);
+    ASensorManager_destroyEventQueue(sensorManager, queue);
+
+//    ACameraMetadata* metadata_obj;
+//    ACameraManager_getCameraCharacteristics(cam_manager_, back_camera_.id.c_str(), &metadata_obj);
+//    ACameraMetadata_const_entry entry = { 0 };
+//    auto status =ACameraMetadata_getConstEntry(metadata_obj,
+//                                          ACAMERA_SENSOR_ORIENTATION,
+//                                          &entry);
+//    if (status != ACAMERA_OK) {
+//        throw std::runtime_error("no camera orientation property");
+//    }
+//    rot = entry.data.i32[0];
+//    ACameraMetadata_free(metadata_obj);
+    return rot;
 }
 
 NativeCamera::CameraInfo NativeCamera::getBackCameraId() const {
@@ -97,13 +151,13 @@ NativeCamera::CameraInfo NativeCamera::getBackCameraId() const {
         int32_t count = 0;
         const uint32_t* tags = nullptr;
         ACameraMetadata_getAllTags(metadata_obj, &count, &tags);
-
-        for (int tagIdx = 0; tagIdx < count; ++tagIdx)
+        for (int tag_idx = 0; tag_idx < count; ++tag_idx)
         {
+            const auto& tag = tags[tag_idx];
             // We are interested in entry that describes the facing of camera
-            if (ACAMERA_LENS_FACING == tags[tagIdx]) {
+            if (ACAMERA_LENS_FACING ==tag) {
                 ACameraMetadata_const_entry lensInfo = {0};
-                ACameraMetadata_getConstEntry(metadata_obj, tags[tagIdx], &lensInfo);
+                ACameraMetadata_getConstEntry(metadata_obj, tag, &lensInfo);
 
                 auto facing = static_cast<acamera_metadata_enum_android_lens_facing_t>(
                         lensInfo.data.u8[0]);
@@ -166,7 +220,7 @@ NativeCamera::NativeCamera() {
     }
 
     cam_status = ACameraDevice_createCaptureRequest(camera_device_,
-                                       TEMPLATE_PREVIEW,
+                                       TEMPLATE_RECORD,
                                        &capture_request_);
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot create capture request");
@@ -198,7 +252,7 @@ NativeCamera::NativeCamera() {
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot set autofocus");
     }
-    uint8_t edge_mode = ACAMERA_EDGE_MODE_HIGH_QUALITY;
+    uint8_t edge_mode = ACAMERA_EDGE_MODE_FAST;
     cam_status = ACaptureRequest_setEntry_u8(capture_request_, ACAMERA_EDGE_MODE, 1, &edge_mode);
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot set edge mode");
@@ -208,11 +262,15 @@ NativeCamera::NativeCamera() {
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot set pixel mode");
     }
-
+    int32_t fps[] = {1, 1};
+    cam_status = ACaptureRequest_setEntry_i32(capture_request_, ACAMERA_CONTROL_AE_TARGET_FPS_RANGE, 2, fps);
+    if(cam_status != ACAMERA_OK) {
+        throw std::runtime_error("cannot set fps");
+    }
 }
 cv::Mat NativeCamera::getImage() const {
     AImage *image = nullptr;
-    auto status = AImageReader_acquireNextImage(image_reader_, &image);
+    auto status = AImageReader_acquireLatestImage(image_reader_, &image);
     if (status != AMEDIA_OK) {
         return {};
     }
@@ -263,15 +321,24 @@ cv::Mat NativeCamera::getImage() const {
          uv = addr_diff > 0 ? uv1 : uv2;
     }
     cv::Mat rgba_img_;
-    if (addr_diff > 0) {
-        cvtColorTwoPlane(y, uv, rgba_img_, cv::COLOR_YUV2RGBA_NV12);
-    } else {
-        cvtColorTwoPlane(y, uv, rgba_img_, cv::COLOR_YUV2RGBA_NV21);
-    }
+    cvtColorTwoPlane(y, uv, rgba_img_, addr_diff > 0 ? cv::COLOR_YUV2RGBA_NV12 : cv::COLOR_YUV2RGBA_NV21);
     AImage_delete(image);
 
-    rgba_img_ = back_camera_.portrait ? rgba_img_ : rgba_img_.t();
-    cv::flip(rgba_img_, rgba_img_, 1);
+    auto rot = rotation();
+    if(rot == 90 || rot == 270) {
+        if(rot == 270) {
+            cv::flip(rgba_img_, rgba_img_, 0);
+        }
+    } else {
+        if(rot != 180) {
+            rgba_img_ = rgba_img_.t();
+        } else {
+            cv::flip(rgba_img_, rgba_img_, 0);
+        }
+    }
+    if(rot != 90) {
+        cv::flip(rgba_img_, rgba_img_, 1);
+    }
     return rgba_img_;
 }
 

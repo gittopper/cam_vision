@@ -25,6 +25,7 @@ class NativeCamera: public ICamera {
     cv::Mat getImage() const override;
   private:
     CameraInfo getBackCameraId() const;
+    int rotation() const;
     CameraInfo back_camera_;
     ACameraManager *cam_manager_ = nullptr;
     ACameraDevice* camera_device_ = nullptr;
