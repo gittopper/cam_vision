@@ -19,7 +19,7 @@ JNIEXPORT void JNICALL
     if (nullptr == engine) {
         engine = std::make_shared<Engine>();
         engine->webCam() = std::make_shared<NativeCamera>();
-        engine->setup(width, height);
+        engine->setup(width, height, res_loader.get());
     }
     engine->renderer().initRenderer(res_loader.get());
     engine->resize(width, height);

@@ -32,7 +32,7 @@ void MainWindow::resizeGL(int w, int h) {
             QApplication::applicationDirPath().toStdString() + "/assets/");
         engine->renderer().initRenderer(rloader.get());
         engine->webCam() = std::make_shared<CVCamera>();
-        engine->setup(w, h);
+        engine->setup(w, h, rloader.get());
     }
     engine->resize(w, h);
     render();

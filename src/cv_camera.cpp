@@ -11,6 +11,7 @@ cv::Mat CVCamera::getImage() const {
     capture_ >> frame;
     if (!frame.empty()) {
         cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA, 4);
+        cv::flip(frame, frame, 1);
     }
     return frame;
 }

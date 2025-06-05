@@ -5,12 +5,14 @@
 #include <mutex>
 #include <icamera.h>
 #include <thread>
+#include <opencv2/dnn/dnn.hpp>
+#include <opencv2/objdetect/face.hpp>
 
 class Engine{
 public:
     Engine();
     ~Engine();
-    void setup(int w, int h);
+    void setup(int w, int h, ResourceLoader* loader);
     void resize(int w, int h);
     void step();
     Renderer& renderer() {
@@ -29,5 +31,6 @@ private:
     std::shared_ptr<Sprite> cam_image_;
     std::mutex m_;
     bool do_capture_ = true;
-
+//    cv::dnn::Net net_;
+    cv::Ptr<cv::FaceDetectorYN> detector_;
 };

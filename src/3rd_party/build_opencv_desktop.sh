@@ -21,8 +21,8 @@ function buildOpenCV() {
     -DBUILD_PERF_TESTS=OFF \
     -DBUILD_ANDROID_PROJECTS=OFF \
     -DBUILD_TESTS=OFF \
-    -DBUILD_PROTBUF=OFF \
-    -DWITH_PROTOBUF=OFF \
+    -DBUILD_PROTBUF=ON \
+    -DWITH_PROTOBUF=ON \
     -DBUILD_opencv_apps=OFF \
     -DBUILD_opencv_java_bindings_generator=OFF \
     -DBUILD_opencv_js_bindings_generator=OFF \
@@ -30,8 +30,8 @@ function buildOpenCV() {
     -DBUILD_opencv_python_bindings_generator=OFF \
     -DBUILD_opencv_python_tests=OFF \
     -DBUILD_opencv_objc_bindings_generator=OFF \
-    -DBUILD_opencv_objdetect=OFF \
-    -DBUILD_opencv_dnn=OFF \
+    -DBUILD_opencv_objdetect=ON \
+    -DBUILD_opencv_dnn=ON \
     -DBUILD_opencv_highgui=OFF \
     -DBUILD_opencv_ml=OFF
 

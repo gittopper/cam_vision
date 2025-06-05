@@ -45,7 +45,7 @@ if(ANDROID_REGIME)
     find_library(camera-lib camera2ndk)
     find_library(media-lib mediandk)
     find_library(android-lib android)
-    target_link_libraries(${TARGET} opencv_core opencv_imgproc opencv_video opencv_videoio
+    target_link_libraries(${TARGET} opencv_core opencv_imgproc opencv_video opencv_videoio opencv_dnn opencv_objdetect
         ${camera-lib} ${media-lib} ${android-lib})
 else()
 
@@ -76,7 +76,7 @@ else()
     find_package (OpenCV REQUIRED PATHS ${OpenCV_DIR} NO_DEFAULT_PATH)
 
     target_link_libraries(cam_vision Qt6::Widgets Qt6::OpenGL
-        opencv_core opencv_imgproc opencv_video  opencv_videoio
+        opencv_core opencv_imgproc opencv_video  opencv_videoio opencv_dnn opencv_objdetect
         Qt6::OpenGLWidgets Qt6::Multimedia -lGL png_static zlibstatic freetype)
 
 endif()

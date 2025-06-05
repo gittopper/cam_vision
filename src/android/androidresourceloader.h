@@ -10,9 +10,12 @@
 class AndroidResourceLoader : public ResourceLoader {
   public:
     AndroidResourceLoader(AAssetManager* manager);
-    virtual std::vector<char> readFile(string filename);
+    std::vector<char> readFile(string filename) override;
+    std::vector<unsigned char> readFileU(string filename) override;
     virtual void setResourcesPath(string path);
 
+    template<typename T>
+    std::vector<T> readf(string filename);
   private:
     std::string resPath_;
     AAssetManager* assetManager_;

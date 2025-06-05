@@ -2,7 +2,8 @@
 
 AndroidResourceLoader::AndroidResourceLoader(AAssetManager* manager)
     : assetManager_(manager) {}
-std::vector<char> AndroidResourceLoader::readFile(std::string filename) {
+template<typename T>
+std::vector<T> AndroidResourceLoader::readf(std::string filename) {
     AAssetDir* assetDir =
         AAssetManager_openDir(assetManager_, resPath_.c_str());
     if (!assetDir) {
@@ -16,7 +17,7 @@ std::vector<char> AndroidResourceLoader::readFile(std::string filename) {
     }
     long length = AAsset_getLength(asset);
 
-    std::vector<char> buffer(length);
+    std::vector<T> buffer(length);
     long offset = 0;
     long readed = 0;
     while ((readed = AAsset_read(asset, buffer.data() + offset, length - offset)) >
@@ -28,5 +29,11 @@ std::vector<char> AndroidResourceLoader::readFile(std::string filename) {
     AAssetDir_close(assetDir);
 
     return buffer;
+}
+std::vector<char> AndroidResourceLoader::readFile(string filename) {
+    return readf<char>(filename);
+}
+std::vector<unsigned char> AndroidResourceLoader::readFileU(string filename) {
+    return readf<unsigned  char>(filename);
 }
 void AndroidResourceLoader::setResourcesPath(std::string path) { resPath_ = path; }

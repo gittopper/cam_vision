@@ -30,8 +30,8 @@ function buildABI() {
     -DCMAKE_BUILD_TYPE=$build_type \
     -DANDROID_SDK_ROOT=${NDK_PATH} \
     -DBUILD_ANDROID_PROJECTS=OFF \
-    -DBUILD_PROTBUF=OFF \
-    -DWITH_PROTOBUF=OFF \
+    -DBUILD_PROTBUF=ON \
+    -DWITH_PROTOBUF=ON \
     -DBUILD_SHARED_LIBS=OFF \
     -DBUILD_PERF_TESTS=OFF \
     -DBUILD_TESTS=OFF \
@@ -42,8 +42,8 @@ function buildABI() {
     -DBUILD_opencv_python_bindings_generator=OFF \
     -DBUILD_opencv_python_tests=OFF \
     -DBUILD_opencv_objc_bindings_generator=OFF \
-    -DBUILD_opencv_objdetect=OFF \
-    -DBUILD_opencv_dnn=OFF \
+    -DBUILD_opencv_objdetect=ON \
+    -DBUILD_opencv_dnn=ON \
     -DBUILD_opencv_highgui=OFF \
     -DBUILD_opencv_ml=OFF \
     -G "Unix Makefiles"
