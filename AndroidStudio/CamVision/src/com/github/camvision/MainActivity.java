@@ -24,10 +24,10 @@ public class MainActivity extends Activity {
         gl_view = new GLView(getApplication());
         setContentView(R.layout.activity_main);
         RelativeLayout layout = (RelativeLayout) findViewById(R.id.root);
-        RelativeLayout.LayoutParams game_view = new RelativeLayout.LayoutParams(
+        RelativeLayout.LayoutParams engine_view = new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.MATCH_PARENT,
                 RelativeLayout.LayoutParams.MATCH_PARENT);
-        layout.addView(gl_view, 0, game_view);
+        layout.addView(gl_view, 0, engine_view);
     }
 
     @Override

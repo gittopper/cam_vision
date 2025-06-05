@@ -35,16 +35,18 @@ public class GLView extends GLSurfaceView {
         setRenderer(new Renderer());
         getHolder().setFormat(PixelFormat.RGBA_8888);
 	};
-	
+
     @Override
     public void onPause() {
         super.onPause();
+        CamVision.onPause();
     }
 
 
     @Override
     public void onResume() {
         super.onResume();
+        CamVision.onResume(assetManager);
     }
 
 	private static class Renderer implements GLSurfaceView.Renderer{
