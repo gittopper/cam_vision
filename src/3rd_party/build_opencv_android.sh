@@ -62,5 +62,5 @@ function builFlavours() {
 }
 
 builFlavours Debug
-#builFlavours Release
-#builFlavours RelWithDebInfo
+builFlavours Release
+builFlavours RelWithDebInfo

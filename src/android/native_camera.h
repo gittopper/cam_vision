@@ -7,6 +7,8 @@
 #include <media/NdkImageReader.h>
 
 #include <icamera.h>
+#include <android/sensor.h>
+#include <thread>
 
 class NativeCamera: public ICamera {
   public:
@@ -25,7 +27,8 @@ class NativeCamera: public ICamera {
     cv::Mat getImage() const override;
   private:
     CameraInfo getBackCameraId() const;
-    int rotation() const;
+    void rotation();
+    void rotationStop();
     CameraInfo back_camera_;
     ACameraManager *cam_manager_ = nullptr;
     ACameraDevice* camera_device_ = nullptr;
@@ -36,4 +39,10 @@ class NativeCamera: public ICamera {
     ACaptureRequest*capture_request_ = nullptr;
     ACaptureSessionOutput* session_output_ = nullptr;
     ACameraOutputTarget* output_target_ = nullptr;
+    int rot_ = 0;
+    bool track_sensor_ = true;
+    std::thread sensor_thread_;
+    ASensorManager* sensor_manager_ = nullptr;
+    const ASensor* accelerometer_ = nullptr;
+    ASensorEventQueue* sensor_queue_ = nullptr;
 };

@@ -1,7 +1,9 @@
 #include <android/native_camera.h>
 #include <camera/NdkCaptureRequest.h>
-#include <android/sensor.h>
+
 #include <string>
+#include <logger.hpp>
+
 
 namespace {
     NativeCamera::CameraInfo getCamInfo(const std::string& id, ACameraMetadata* metadata_obj) {
@@ -37,10 +39,6 @@ namespace {
                 continue;
 
             int32_t format = entry.data.i32[i + 0];
-            if (format == AIMAGE_FORMAT_JPEG)
-            {
-                resolutions.push_back(std::pair<int, int>{entry.data.i32[i + 1], entry.data.i32[i + 2]});
-            }
             if (format == AIMAGE_FORMAT_YUV_420_888) {
                 resolutions.push_back(std::pair<int, int>{entry.data.i32[i + 1], entry.data.i32[i + 2]});
             }
@@ -51,6 +49,7 @@ namespace {
         auto mid_res = resolutions.size() / 2;
         cam_info.width = resolutions[mid_res].first;
         cam_info.height = resolutions[mid_res].second;
+        LOGI("width ", cam_info.width, ", height ", cam_info.height);
         status =ACameraMetadata_getConstEntry(metadata_obj,
                                       ACAMERA_SENSOR_ORIENTATION,
                                       &entry);
@@ -96,32 +95,43 @@ namespace {
     }
 }
 
-int NativeCamera::rotation() const {
-    ASensorManager* sensorManager = ASensorManager_getInstance();
-    const ASensor* accelerometer = ASensorManager_getDefaultSensor(sensorManager, ASENSOR_TYPE_ACCELEROMETER);
+void NativeCamera::rotationStop() {
+    ASensorEventQueue_disableSensor(sensor_queue_, accelerometer_);
+    ASensorManager_destroyEventQueue(sensor_manager_, sensor_queue_);
+}
+
+void NativeCamera::rotation() {
+    sensor_manager_ = ASensorManager_getInstance();
+    accelerometer_ = ASensorManager_getDefaultSensor(sensor_manager_, ASENSOR_TYPE_ACCELEROMETER);
     ALooper* looper = ALooper_prepare(0);
-    auto queue = ASensorManager_createEventQueue(sensorManager, looper, 1, looperCallbackFunc, nullptr);
-    ASensorEventQueue_enableSensor(queue, accelerometer);
-    ASensorEventQueue_setEventRate(queue, accelerometer, 20000);
-    ASensorEvent event;
-    auto result = ASensorEventQueue_getEvents(queue, &event, 1);
-    while(0 >= result) {
-        result = ASensorEventQueue_getEvents(queue, &event, 1);
-    }
-    int rot{};
-    if(event.type == ASENSOR_TYPE_ACCELEROMETER) {
-        auto& accel = event.acceleration;
-        auto ax = event.acceleration.x;
-        auto ay = event.acceleration.y;
-        auto az = event.acceleration.z;
-        if(std::abs(ax) > std::abs(ay)) {
-            rot = ax > 0 ? 90 : 270;
-        } else {
-            rot = ay > 0 ? 0 : 180;
+    sensor_queue_ = ASensorManager_createEventQueue(sensor_manager_, looper, 1, looperCallbackFunc, nullptr);
+    ASensorEventQueue_enableSensor(sensor_queue_, accelerometer_);
+    ASensorEventQueue_setEventRate(sensor_queue_, accelerometer_, 100000);
+    while(track_sensor_) {
+        ASensorEvent event;
+        auto result = ASensorEventQueue_getEvents(sensor_queue_, &event, 1);
+        while(0 >= result) {
+            result = ASensorEventQueue_getEvents(sensor_queue_, &event, 1);
         }
+        int rot{};
+        if(event.type == ASENSOR_TYPE_ACCELEROMETER) {
+            auto& accel = event.acceleration;
+            auto ax = event.acceleration.x;
+            auto ay = event.acceleration.y;
+            auto az = event.acceleration.z;
+            if(std::abs(ax) > std::abs(ay)) {
+                rot = ax > 0 ? 90 : 270;
+            } else {
+                rot = ay > 0 ? 0 : 180;
+            }
+        }
+        //LOGI("calculated rotation ", rot);
+        if (rot != rot_) {
+            rot_ = rot;
+            LOGI("rotation: ", rot_);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    ASensorEventQueue_disableSensor(queue, accelerometer);
-    ASensorManager_destroyEventQueue(sensorManager, queue);
 
 //    ACameraMetadata* metadata_obj;
 //    ACameraManager_getCameraCharacteristics(cam_manager_, back_camera_.id.c_str(), &metadata_obj);
@@ -134,7 +144,6 @@ int NativeCamera::rotation() const {
 //    }
 //    rot = entry.data.i32[0];
 //    ACameraMetadata_free(metadata_obj);
-    return rot;
 }
 
 NativeCamera::CameraInfo NativeCamera::getBackCameraId() const {
@@ -188,7 +197,7 @@ NativeCamera::NativeCamera() {
     if(cam_status != ACAMERA_OK || !camera_device_) {
         throw std::runtime_error("cannot open camera!");
     }
-    constexpr int32_t MAX_BUF_COUNT = 4;
+    constexpr int32_t MAX_BUF_COUNT = 6;
     auto status = AImageReader_new(back_camera_.width, back_camera_.height,
                                    AIMAGE_FORMAT_YUV_420_888,
                                    MAX_BUF_COUNT,
@@ -267,7 +276,22 @@ NativeCamera::NativeCamera() {
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot set fps");
     }
+    sensor_thread_ = std::thread([this](){
+        rotation();
+    });
 }
+
+NativeCamera::~NativeCamera() {
+    if(cam_manager_) {
+        ACameraManager_delete(cam_manager_);
+    }
+    if(sensor_thread_.joinable()) {
+        track_sensor_ = false;
+        sensor_thread_.join();
+        rotationStop();
+    }
+}
+
 cv::Mat NativeCamera::getImage() const {
     AImage *image = nullptr;
     auto status = AImageReader_acquireLatestImage(image_reader_, &image);
@@ -324,26 +348,21 @@ cv::Mat NativeCamera::getImage() const {
     cvtColorTwoPlane(y, uv, rgba_img_, addr_diff > 0 ? cv::COLOR_YUV2RGBA_NV12 : cv::COLOR_YUV2RGBA_NV21);
     AImage_delete(image);
 
-    auto rot = rotation();
-    if(rot == 90 || rot == 270) {
-        if(rot == 270) {
+    //LOGI("new image");
+    if(rot_ == 90 || rot_ == 270) {
+        if(rot_ == 270) {
+            //LOGI("image flip vertically");
             cv::flip(rgba_img_, rgba_img_, 0);
         }
     } else {
-        if(rot != 180) {
+        if(rot_ != 180) {
+            //LOGI("image transpose");
             rgba_img_ = rgba_img_.t();
-        } else {
-            cv::flip(rgba_img_, rgba_img_, 0);
         }
     }
-    if(rot != 90) {
+    if(rot_ != 90 && rot_ != 180) {
+        //LOGI("image flip horizontally");
         cv::flip(rgba_img_, rgba_img_, 1);
     }
     return rgba_img_;
-}
-
-NativeCamera::~NativeCamera() {
-    if(cam_manager_) {
-        ACameraManager_delete(cam_manager_);
-    }
 }
