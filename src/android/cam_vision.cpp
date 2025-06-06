@@ -18,7 +18,7 @@ JNIEXPORT void JNICALL
         AAssetManager_fromJava(env, javaAssetManager)));
     if (nullptr == engine) {
         engine = std::make_shared<Engine>();
-        engine->webCam() = std::make_shared<NativeCamera>(true);
+        engine->setCamBuilder(std::make_shared<CameraBuilder>());
         engine->setup(width, height, res_loader.get());
     }
     engine->renderer().initRenderer(res_loader.get());
@@ -29,6 +29,14 @@ JNIEXPORT void JNICALL
     Java_com_github_camvision_CamVision_step(JNIEnv* env, jobject obj) {
     std::lock_guard<std::mutex> lock(m);
     engine->step();
+}
+
+JNIEXPORT void JNICALL
+Java_com_github_camvision_CamVision_tap(JNIEnv* env, jobject obj, jint x, jint y) {
+    std::lock_guard<std::mutex> lock(m);
+    if(engine) {
+        engine->tap(x, y);
+    }
 }
 
 JNIEXPORT void JNICALL

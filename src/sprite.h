@@ -88,6 +88,9 @@ class Sprite {
     const std::uint8_t* data() const {
         return data_.data();
     }
+    std::uint8_t* data() {
+        return data_.data();
+    }
     Type type() const {
         return type_;
     }

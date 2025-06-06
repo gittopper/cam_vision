@@ -15,3 +15,7 @@ cv::Mat CVCamera::getImage() const {
     }
     return frame;
 }
+
+ void CVCamera::close() {
+     capture_.release();
+}

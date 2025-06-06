@@ -42,11 +42,23 @@ public class GLView extends GLSurfaceView {
         CamVision.onPause();
     }
 
-
     @Override
     public void onResume() {
         super.onResume();
         CamVision.onResume(assetManager);
+    }
+
+    public boolean onTouchEvent(final MotionEvent e) {
+        if (e.getPointerCount() == 1){
+            int x = (int) e.getX();
+            int y = (int) e.getY();
+            switch (e.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    CamVision.tap(x, y);
+                    break;
+            }
+        }
+        return true;
     }
 
 	private static class Renderer implements GLSurfaceView.Renderer{

@@ -14,7 +14,7 @@ class MainWindow : public QOpenGLWidget {
     void initializeGL() override;
     void resizeGL(int w, int h) override;
     void paintGL() override;
-
+    void mousePressEvent(QMouseEvent* me) override;
 
   protected slots:
     void render();  // Определяем координаты объектов

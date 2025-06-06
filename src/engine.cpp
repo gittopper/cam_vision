@@ -4,34 +4,40 @@
 
 Engine::Engine() {}
 
+void Engine::tap(int x, int y) {
+    if (x >= cam_button_.x && x <= cam_button_.x + cam_button_.width &&
+            y >= cam_button_.y && y <= cam_button_.y + cam_button_.height)
+    {
+        std::lock_guard<std::mutex> lock(m_);
+        use_frontal_ = !use_frontal_;
+        web_cam_->close();
+        web_cam_ = cam_builder_->open(use_frontal_);
+    }
+}
+
 void Engine::setup(int w, int h, ResourceLoader* loader) {
     camera_.setViewport(w, h);
     camera_.setInternalWidth(10);
+    auto wb = std::min(w, h) * 0.05;
+    cam_button_ = cv::Rect(wb, wb, wb, wb);
     renderer_.setCamera(&camera_);
     auto yunet = loader->readFileU("face_detection_yunet_2023mar.onnx");
-//    net_ = cv::dnn::readNetFromONNX(yunet);
     detector_ = cv::FaceDetectorYN::create("onnx", yunet, {}, cv::Size(w, h));
+    web_cam_ = cam_builder_->open(use_frontal_);
     cam_thread_ = std::thread([this](){
         while(do_capture_) {
-            auto frame = web_cam_->getImage();
+            cv::Mat frame;
+            {
+                std::lock_guard<std::mutex> lock(m_);
+                frame = web_cam_->getImage();
+            }
             if(!frame.empty()) {
                 cv::Mat input;
                 cv::cvtColor(frame, input, cv::COLOR_RGBA2BGR);
                 cv::Mat faces;
                 detector_->setInputSize(input.size());
                 detector_->detect(input, faces);
-//                cv::Mat input_blob = cv::dnn::blobFromImage(input, 1. / 255, frame.size());
-//                net_.setInput(input_blob);
-//                std::vector<std::string> names = net_.getUnconnectedOutLayersNames();
-//                std::vector<cv::Mat> outs;
 
-//                net_.forward(outs, names);
-
-//                for(const auto& out: outs) {
-//                    auto r = out.rows;
-//                    auto c = out.cols;
-//                    auto d = out.data;
-//                }
                 const cv::Scalar color(255, 0, 0, 255);
                 auto draw_pimp = [&color, &frame](float x, float y){
                     cv::circle(frame, cv::Point(x, y), 2, color, -1);
@@ -58,13 +64,35 @@ void Engine::setup(int w, int h, ResourceLoader* loader) {
                     auto mouth_left_y = faces.at<float>(iface, 13);
                     draw_pimp(mouth_left_x, mouth_left_y);
                     auto score = faces.at<float>(iface, 14);
-                    cv::putText(frame, std::to_string(score), cv::Point(x, y), cv::FONT_HERSHEY_COMPLEX, 2, color, 2);
+                    auto text = std::to_string(score);
+                    auto font_size = 2;
+                    cv::rectangle(frame, cv::Point{int(x), int(y) - font_size * 12},
+                            cv::Point{int(x) + int(text.length()) * font_size * 10, int(y)},color,-1);
+                    cv::putText(frame, text, cv::Point(x, y), cv::FONT_HERSHEY_PLAIN, font_size, cv::Scalar(255, 255, 255), 2);
                 }
-                std::vector<std::uint8_t> data(4 * frame.rows * frame.cols);
-                std::memcpy(data.data(), frame.data, 4 * frame.rows * frame.cols);
+                auto w = camera_.width();
+                auto h = camera_.height();
+                auto ratio = float(w) / h;
+                auto cam_ratio = float(frame.cols) / frame.rows;
+                auto fw = w - 1;
+                auto fh = h - 1;
+                if(cam_ratio > ratio) {
+                    fh = int(w / cam_ratio);
+                } else {
+                    fw = int(h * cam_ratio);
+                }
+                cv::Mat resized;
+                cv::resize(frame, resized, cv::Size(fw, fh));
+                auto x_shift = (w - fw) / 2;
+                auto y_shift = (h - fh) / 2;
                 std::lock_guard<std::mutex> lock(m_);
-                cam_image_ = std::make_shared<Sprite>(frame.cols, frame.rows, frame.cols, frame.rows, Sprite::RGBA,
-                                    std::move(data));
+                cam_image_ = std::make_shared<Sprite>(w, h, Color(0, 0, 0, 255));
+                cv::Mat wrapper(h, w, CV_8UC4, cam_image_->data());
+                cv::Mat roi(wrapper, cv::Rect(x_shift, y_shift, fw, fh));
+                resized.copyTo(roi);
+                cv::imwrite("wrapper.png", wrapper);
+                cv::rectangle(wrapper, cam_button_, cv::Scalar(255), -1);
+
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }

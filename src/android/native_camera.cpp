@@ -95,16 +95,12 @@ namespace {
     }
 }
 
-void NativeCamera::rotationStop() {
-    ASensorEventQueue_disableSensor(sensor_queue_, accelerometer_);
-    ASensorManager_destroyEventQueue(sensor_manager_, sensor_queue_);
-}
-
 void NativeCamera::rotation() {
     sensor_manager_ = ASensorManager_getInstance();
     accelerometer_ = ASensorManager_getDefaultSensor(sensor_manager_, ASENSOR_TYPE_ACCELEROMETER);
-    ALooper* looper = ALooper_prepare(0);
-    sensor_queue_ = ASensorManager_createEventQueue(sensor_manager_, looper, 1, looperCallbackFunc, nullptr);
+    looper_ = ALooper_prepare(0);
+    //ALooper_acquire(looper_);
+    sensor_queue_ = ASensorManager_createEventQueue(sensor_manager_, looper_, 1, looperCallbackFunc, nullptr);
     ASensorEventQueue_enableSensor(sensor_queue_, accelerometer_);
     ASensorEventQueue_setEventRate(sensor_queue_, accelerometer_, 100000);
     while(track_sensor_) {
@@ -237,7 +233,6 @@ NativeCamera::NativeCamera(bool front_view) {
         throw std::runtime_error("cannot create capture request");
     }
 
-
     cam_status = ACaptureRequest_addTarget(capture_request_, output_target_);
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot add target");
@@ -249,7 +244,6 @@ NativeCamera::NativeCamera(bool front_view) {
     if(cam_status != ACAMERA_OK) {
         throw std::runtime_error("cannot create capture session");
     }
-
     cam_status = ACameraCaptureSession_setRepeatingRequest(capture_session_,
                                                            nullptr,
                                                            1,
@@ -283,15 +277,40 @@ NativeCamera::NativeCamera(bool front_view) {
     });
 }
 
-NativeCamera::~NativeCamera() {
+void NativeCamera::close() {
     if(cam_manager_) {
+        LOGI("ACaptureRequest_removeTarget");
+        ACaptureRequest_removeTarget(capture_request_, output_target_);
+        LOGI("ACameraCaptureSession_stopRepeating");
+        ACameraCaptureSession_stopRepeating(capture_session_);
+        LOGI("ACameraCaptureSession_abortCaptures");
+        ACameraCaptureSession_abortCaptures(capture_session_);
+        LOGI("ANativeWindow_release");
+        ANativeWindow_release(output_native_window_);
+        LOGI("AImageReader_delete");
+        AImageReader_delete(image_reader_);
+        LOGI("ACameraDevice_close");
+        ACameraDevice_close(camera_device_);
+        LOGI("ACameraManager_delete");
         ACameraManager_delete(cam_manager_);
+        cam_manager_ = nullptr;
     }
     if(sensor_thread_.joinable()) {
         track_sensor_ = false;
         sensor_thread_.join();
+        sensor_thread_ = std::thread();
         rotationStop();
     }
+}
+
+void NativeCamera::rotationStop() {
+    ASensorEventQueue_disableSensor(sensor_queue_, accelerometer_);
+    //ALooper_release(looper_);
+    //ASensorManager_destroyEventQueue(sensor_manager_, sensor_queue_);
+}
+
+NativeCamera::~NativeCamera() {
+    close();
 }
 
 cv::Mat NativeCamera::getImage() const {

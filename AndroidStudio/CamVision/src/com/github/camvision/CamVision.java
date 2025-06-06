@@ -10,6 +10,7 @@ public class CamVision {
 
 	public static native void init(int width, int height, AssetManager assetManager);
 	public static native void step();
+	public static native void tap(int x, int y);
 	public static native void onPause();
 	public static native void onResume(AssetManager assetManager);
 }

@@ -31,11 +31,18 @@ void MainWindow::resizeGL(int w, int h) {
         rloader->setResourcesPath(
             QApplication::applicationDirPath().toStdString() + "/assets/");
         engine->renderer().initRenderer(rloader.get());
-        engine->webCam() = std::make_shared<CVCamera>();
+        engine->setCamBuilder(std::make_shared<CameraBuilder>());
         engine->setup(w, h, rloader.get());
     }
     engine->resize(w, h);
     render();
+}
+
+void MainWindow::mousePressEvent(QMouseEvent* me) {
+    if (me->button() == Qt::LeftButton) {
+        engine->tap(me->position().x(), me->position().y());
+    }
+    update();
 }
 
 void MainWindow::paintGL() {

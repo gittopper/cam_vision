@@ -25,6 +25,7 @@ class NativeCamera: public ICamera {
         int64_t max_sensistivity;
     };
     cv::Mat getImage() const override;
+    void close() override;
   private:
     CameraInfo getCameraId() const;
     void rotation();
@@ -45,5 +46,13 @@ class NativeCamera: public ICamera {
     std::thread sensor_thread_;
     ASensorManager* sensor_manager_ = nullptr;
     const ASensor* accelerometer_ = nullptr;
+    ALooper* looper_ = nullptr;
     ASensorEventQueue* sensor_queue_ = nullptr;
+};
+
+class CameraBuilder: public ICameraBuilder{
+public:
+    std::shared_ptr<ICamera> open(bool frontal_view) override {
+        return std::make_shared<NativeCamera>(frontal_view);
+    }
 };
