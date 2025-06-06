@@ -134,7 +134,7 @@ void NativeCamera::rotation() {
     }
 
 //    ACameraMetadata* metadata_obj;
-//    ACameraManager_getCameraCharacteristics(cam_manager_, back_camera_.id.c_str(), &metadata_obj);
+//    ACameraManager_getCameraCharacteristics(cam_manager_, camera_.id.c_str(), &metadata_obj);
 //    ACameraMetadata_const_entry entry = { 0 };
 //    auto status =ACameraMetadata_getConstEntry(metadata_obj,
 //                                          ACAMERA_SENSOR_ORIENTATION,
@@ -146,7 +146,7 @@ void NativeCamera::rotation() {
 //    ACameraMetadata_free(metadata_obj);
 }
 
-NativeCamera::CameraInfo NativeCamera::getBackCameraId() const {
+NativeCamera::CameraInfo NativeCamera::getCameraId() const {
 
     ACameraIdList *cameraIds = nullptr;
     ACameraManager_getCameraIdList(cam_manager_, &cameraIds);
@@ -172,7 +172,8 @@ NativeCamera::CameraInfo NativeCamera::getBackCameraId() const {
                         lensInfo.data.u8[0]);
 
                 // Found a back-facing camera
-                if (facing == ACAMERA_LENS_FACING_BACK) {
+                if (facing == ACAMERA_LENS_FACING_BACK && !front_view_
+                || facing == ACAMERA_LENS_FACING_FRONT && front_view_) {
                     cam_info = getCamInfo(id, metadata_obj);
                     break;
                 }
@@ -187,18 +188,19 @@ NativeCamera::CameraInfo NativeCamera::getBackCameraId() const {
 }
 
 
-NativeCamera::NativeCamera() {
+NativeCamera::NativeCamera(bool front_view) {
+    front_view_ = front_view;
     cam_manager_ = ACameraManager_create();
-    back_camera_ = getBackCameraId();
+    camera_ = getCameraId();
     auto cam_status = ACameraManager_openCamera(cam_manager_,
-                              back_camera_.id.c_str(),
+                              camera_.id.c_str(),
                               &camera_callbacks,
                               &camera_device_);
     if(cam_status != ACAMERA_OK || !camera_device_) {
         throw std::runtime_error("cannot open camera!");
     }
     constexpr int32_t MAX_BUF_COUNT = 6;
-    auto status = AImageReader_new(back_camera_.width, back_camera_.height,
+    auto status = AImageReader_new(camera_.width, camera_.height,
                                    AIMAGE_FORMAT_YUV_420_888,
                                    MAX_BUF_COUNT,
                                    &image_reader_);
@@ -348,21 +350,42 @@ cv::Mat NativeCamera::getImage() const {
     cvtColorTwoPlane(y, uv, rgba_img_, addr_diff > 0 ? cv::COLOR_YUV2RGBA_NV12 : cv::COLOR_YUV2RGBA_NV21);
     AImage_delete(image);
 
-    //LOGI("new image");
-    if(rot_ == 90 || rot_ == 270) {
-        if(rot_ == 270) {
-            //LOGI("image flip vertically");
-            cv::flip(rgba_img_, rgba_img_, 0);
+    if(front_view_) {
+        if(rot_ == 90 || rot_ == 270) {
+            if(rot_ != 90) {
+                //LOGI("image flip vertically");
+                cv::flip(rgba_img_, rgba_img_, 0);
+            } else {
+                cv::flip(rgba_img_, rgba_img_, 1);
+            }
+        } else {
+            if (rot_ != 180) {
+                //LOGI("image transpose");
+                rgba_img_ = rgba_img_.t();
+                cv::flip(rgba_img_, rgba_img_, 0);
+                cv::flip(rgba_img_, rgba_img_, 1);
+            } else {
+                cv::flip(rgba_img_, rgba_img_, 1);
+            }
         }
-    } else {
-        if(rot_ != 180) {
-            //LOGI("image transpose");
-            rgba_img_ = rgba_img_.t();
-        }
-    }
-    if(rot_ != 90 && rot_ != 180) {
         //LOGI("image flip horizontally");
-        cv::flip(rgba_img_, rgba_img_, 1);
+    } else {
+        //LOGI("new image");
+        if(rot_ == 90 || rot_ == 270) {
+            if(rot_ == 270) {
+                //LOGI("image flip vertically");
+                cv::flip(rgba_img_, rgba_img_, 0);
+            }
+        } else {
+            if(rot_ != 180) {
+                //LOGI("image transpose");
+                rgba_img_ = rgba_img_.t();
+            }
+        }
+        if(rot_ != 90 && rot_ != 180) {
+            //LOGI("image flip horizontally");
+            cv::flip(rgba_img_, rgba_img_, 1);
+        }
     }
     return rgba_img_;
 }

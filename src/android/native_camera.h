@@ -12,7 +12,7 @@
 
 class NativeCamera: public ICamera {
   public:
-    NativeCamera();
+    NativeCamera(bool front_view);
     ~NativeCamera();
     struct CameraInfo{
         std::string id;
@@ -26,10 +26,11 @@ class NativeCamera: public ICamera {
     };
     cv::Mat getImage() const override;
   private:
-    CameraInfo getBackCameraId() const;
+    CameraInfo getCameraId() const;
     void rotation();
     void rotationStop();
-    CameraInfo back_camera_;
+    bool front_view_;
+    CameraInfo camera_;
     ACameraManager *cam_manager_ = nullptr;
     ACameraDevice* camera_device_ = nullptr;
     AImageReader* image_reader_ = nullptr;

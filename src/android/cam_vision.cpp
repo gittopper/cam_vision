@@ -18,7 +18,7 @@ JNIEXPORT void JNICALL
         AAssetManager_fromJava(env, javaAssetManager)));
     if (nullptr == engine) {
         engine = std::make_shared<Engine>();
-        engine->webCam() = std::make_shared<NativeCamera>();
+        engine->webCam() = std::make_shared<NativeCamera>(true);
         engine->setup(width, height, res_loader.get());
     }
     engine->renderer().initRenderer(res_loader.get());
